@@ -15,6 +15,21 @@ def left_orthgonalize(mps):
     q,r = np.linalg.qr(temp)
     mps[-1] = q
 
+    
+# def right_orthgonalize(mps):
+#     shape = len(mps)
+#     # deal with weird shapes here
+#     q,r = np.linalg.qr(mps[0])
+#     mps[0] = q/np.sqrt(2)
+#     for i in range(1, shape-1):
+#         temp = np.einsum('ia, ajk', r,  mps[i]).reshape((4,2))
+#         q,r = np.linalg.qr(temp)
+#         mps[i] = q.reshape((2,2,2))
+#     temp = np.einsum('ia, aj', r, mps[-1])
+#     q,r = np.linalg.qr(temp)
+#     mps[-1] = q
+
+    
 def mps_to_unitaries(mps):
     unitaries = list()
     shape = len(mps)
@@ -28,7 +43,7 @@ def mps_to_unitaries(mps):
     X = sp.linalg.null_space(A.conjugate().transpose())
     G = np.hstack((A, X)).reshape((2,2,2,2))
     unitaries.append(G)
-    return unitaries
+    return unitaries[::-1]
 
 def G_norm(G):
     return np.einsum('ikab, jlab', G, G.conjugate())
@@ -48,6 +63,14 @@ def build_wavefunction(mps):
     wave_function = np.einsum('ia, aj', wave_function, mps[-1])
     wave_function = wave_function.reshape((m0s[0]*m1s[1], 1))
     return wave_function.transpose()
+
+def build_circuit(unitaries):
+    u0s = unitaries[0].shape
+    u1s = unitaries[1].shape
+    circuit = np.einsum('jial, kanm', unitaries[0], unitaries[1])
+    circuit = np.einsum('ijklma, an', circuit, unitaries[2])
+    circuit = circuit.reshape((8,8))
+    return circuit
     
 
 
@@ -57,14 +80,40 @@ mps_list = [np.random.normal(size=(2,2,2)) for i in range(L-2)]
 mps_list.insert(0, np.random.normal(size=(2,2)))
 mps_list.append(np.random.normal(size=(2,2)))
 
+
+
 # print(mps_list)
 left_orthgonalize(mps_list)
-
+print(np.einsum('abi, abj', mps_list[1], mps_list[1]))
 U = mps_to_unitaries(mps_list)
+# print([x.shape for x in mps_list])
+# print([x.shape for x in U])
 
-# print([G_norm(x) for x in U[1:]])
+# check = np.einsum('ec, cda, ab, bf, dgfk, eigj', mps_list[0],
+#                   mps_list[1],
+#                   mps_list[2],
+#                   U[2],
+#                   U[1],
+#                   U[0])
+# check = np.einsum('ab, bc, cd, jida', mps_list[0],
+#                   mps_list[1],
+#                   U[1],
+#                   U[0])
+# print(np.einsum('ab, jiba', mps_list[0], U[0]))
+# print(check)
+
+# print(mps_list[-1].dot(U[-1]))
+          
+
+Umat = build_circuit(U)
+print(Umat.dot(Umat.conjugate().transpose()))
+print(Umat.transpose().dot(Umat))
+# Umat.transpose().dot(wf)
+
+# # print([G_norm(x) for x in U[1:]])
 
 # wf = build_wavefunction(mps_list)
+# print(Umat.dot(wf.transpose()))
 # print(wf)
 # print(wf.dot(wf.transpose()))
 # wf_orig = np.einsum('ia,ajb,bk', mps_list[0], mps_list[1], mps_list[2])
