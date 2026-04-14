@@ -46,8 +46,8 @@ def mps_to_unitaries(mps):
     unitaries.append(G)
     return unitaries
 
-def G_norm(G):
-    return np.einsum('ikab, jlab', G, G.conjugate())
+# def G_norm(G):
+#     return np.einsum('ikab, jlab', G, G.conjugate())
 
 def build_wavefunction(mps):
     m0s = mps[0].shape
@@ -65,18 +65,41 @@ def build_wavefunction(mps):
     wave_function = wave_function.reshape((m0s[0]*m1s[1], 1))
     return wave_function.transpose()
 
-def build_circuit(unitaries):
-    u0s = unitaries[0].shape
-    u1s = unitaries[1].shape
-    circuit = np.einsum('jial, kanm', unitaries[0], unitaries[1])
-    circuit = np.einsum('ijklma, an', circuit, unitaries[2])
-    circuit = circuit.reshape((8,8))
-    return circuit
+# def build_circuit(unitaries):
+#     u0s = unitaries[0].shape
+#     u1s = unitaries[1].shape
+#     circuit = np.einsum('jial, kanm', unitaries[0], unitaries[1])
+#     circuit = np.einsum('ijklma, an', circuit, unitaries[2])
+#     circuit = circuit.reshape((8,8))
+#     return circuit
+
+def disentangle(mps, unis):
+    shape = len(mps)
+    assert shape == len(unis)
+    cap = np.einsum('ai, aj', mps[0], unis[0])
+    if shape == 2:
+        us = unis[1].shape
+        cap = np.einsum('ac, ab, cbji', cap, mps[1], unis[1])
+        cap = cap.reshape((us[3]*us[2], 1))
+        return cap
+    cap = np.einsum('ab, ack, bcij', cap, mps[1], unis[1])
+    for i in range(2, shape-1):
+        us = unis[i].shape
+        cs = cap.shape
+        ms = mps[i].shape
+        cap = np.einsum('abl, cbik, jca', mps[i], unis[i], cap)
+        cap = cap.reshape((us[2]*cs[0], ms[2], us[3]))
+    us = unis[-1].shape
+    cs = cap.shape
+    ms = mps[-1].shape
+    cap = np.einsum('ab, cbji, kca', mps[-1], unis[-1], cap)
+    cap = cap.reshape((us[3]*us[2]*cs[0], 1))
+    return cap
     
-
-
+    
+    
 # if __name__ == '__main__':        
-L = 3
+L = 2
 mps_list = [np.random.normal(size=(2,2,2)) for i in range(L-2)]
 mps_list.insert(0, np.random.normal(size=(2,2)))
 mps_list.append(np.random.normal(size=(2,2)))
@@ -91,6 +114,9 @@ U = mps_to_unitaries(mps_list)
 print(len(U))
 print([x.shape for x in U])
 
+vec = disentangle(mps_list, U)
+print(vec)
+
 # print(mps_list[1][j,k,l])
 # print(U[1][j,k,0,l])
 
@@ -101,18 +127,18 @@ print([x.shape for x in U])
 # print([x.shape for x in mps_list])
 # print([x.shape for x in U])
 
-check = np.einsum('ab, bfc, cd, ag, gfke, edji', mps_list[0],
-                  mps_list[1],
-                  mps_list[2],
-                  U[0],
-                  U[1],
-                  U[2])
+# check = np.einsum('ab, bfc, cd, ag, gfke, edji', mps_list[0],
+#                   mps_list[1],
+#                   mps_list[2],
+#                   U[0],
+#                   U[1],
+#                   U[2])
 # check = np.einsum('ab, bc, cd, jida', mps_list[0],
 #                   mps_list[1],
 #                   U[1],
 #                   U[0])
 # print(np.einsum('ab, jiba', mps_list[0], U[0]))
-print(check)
+# print(check)
 
 # print(mps_list[-1].dot(U[-1]))
           
