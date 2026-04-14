@@ -3,35 +3,56 @@ import scipy as sp
 
 
 def left_orthgonalize(mps):
+    """
+    Takes an MPS of bond dimension 2 and left orthonalizes it.
+
+    Parameters
+    ----------
+    mps : A list of matrix product states of bond dimension 2.
+
+    Returns
+    -------
+    norm : The final normalization of the MPS stored in a
+           Hermitian matrix.
+
+    Notes
+    -----
+    Orthonalizes in place.
+    
+    """
     shape = len(mps)
     # deal with weird shapes here
-    q,r = np.linalg.qr(mps[0])
+    q, norm = np.linalg.qr(mps[0])
     mps[0] = q
     for i in range(1, shape-1):
-        temp = np.einsum('ia, ajk', r,  mps[i]).reshape((4,2))
-        q,r = np.linalg.qr(temp)
+        temp = np.einsum('ia, ajk', norm,  mps[i]).reshape((4,2))
+        q, norm = np.linalg.qr(temp)
         mps[i] = q.reshape((2,2,2))
-    temp = np.einsum('ia, aj', r, mps[-1])
-    q,r = np.linalg.qr(temp)
+    temp = np.einsum('ia, aj', norm, mps[-1])
+    q, norm = np.linalg.qr(temp)
     mps[-1] = q/np.sqrt(2)
-
-    
-# def right_orthgonalize(mps):
-#     shape = len(mps)
-#     # deal with weird shapes here
-#     q,r = np.linalg.qr(mps[0])
-#     mps[0] = q/np.sqrt(2)
-#     for i in range(1, shape-1):
-#         temp = np.einsum('ia, ajk', r,  mps[i]).reshape((4,2))
-#         q,r = np.linalg.qr(temp)
-#         mps[i] = q.reshape((2,2,2))
-#     temp = np.einsum('ia, aj', r, mps[-1])
-#     q,r = np.linalg.qr(temp)
-#     mps[-1] = q
+    return norm
 
     
 def mps_to_unitaries(mps):
-    # G[j,k,i,l] for MPS with A[j,k,l] as [left, spin, right]
+    """
+    Creates a list of unitaries which disentangle the input MPS.
+
+    Parameters
+    ----------
+    mps : A list of matrix product states of bond dimension 2.
+
+    Returns
+    -------
+    unitaries : A list of unitary matrices which disentangle the
+                given MPS.
+
+    Notes
+    -----
+    The unitaries are returned in the same order as the MPS they
+    disentangle, i.e. unitaries[0] disentangles mps[0].
+    
+    """
     unitaries = list()
     shape = len(mps)
     unitaries.append(mps[0])
@@ -46,10 +67,20 @@ def mps_to_unitaries(mps):
     unitaries.append(G)
     return unitaries
 
-# def G_norm(G):
-#     return np.einsum('ikab, jlab', G, G.conjugate())
 
 def build_wavefunction(mps):
+    """
+    Constructs the exact state vector from an MPS.
+
+    Parameters
+    ----------
+    mps : A list of MPS.
+
+    Returns
+    -------
+    wave_function : The statevector for the MPS.
+    
+    """
     m0s = mps[0].shape
     m1s = mps[1].shape
     wave_function = np.einsum('ia, ajk', mps[0], mps[1])
@@ -65,7 +96,22 @@ def build_wavefunction(mps):
     wave_function = wave_function.reshape((m0s[0]*m1s[1], 1))
     return wave_function
 
+
 def build_circuit(unis):
+    """
+    Builds the matrix representation of a quantum circuit that
+    disentangles a MPS from the given unitaries.
+
+    Parameters
+    ----------
+    unis : A list of unitaries which disentangle an MPS.
+
+    Returns
+    -------
+    circuit : A unitary matrix which disentangles the state vector
+              of an MPS.
+    
+    """
     shape = len(unis)
     u0s = unis[0].shape
     u1s = unis[1].shape
@@ -80,10 +126,22 @@ def build_circuit(unis):
     circuit = circuit.reshape((cs[0], cs[1]*cs[2]))
     return circuit
         
-        
-
-    
+            
 def disentangle(mps, unis):
+    """
+    Given an MPS and a list of unitaries, this function disentangles
+    the given MPS into a product state of all zeros.
+
+    Parameters
+    ----------
+    mps  : A list of MPS.
+    unis : A list of unitaries that disentangle the given MPS.
+
+    Returns
+    -------
+    cap : The final disentangled statevector.
+    
+    """
     shape = len(mps)
     assert shape == len(unis)
     cap = np.einsum('ai, aj', mps[0], unis[0])
@@ -106,8 +164,7 @@ def disentangle(mps, unis):
     cap = cap.reshape((us[3]*us[2]*cs[0], 1))
     return cap
     
-    
-    
+        
 # if __name__ == '__main__':        
 L = 3
 mps_list = [np.random.normal(size=(2,2,2)) for i in range(L-2)]
