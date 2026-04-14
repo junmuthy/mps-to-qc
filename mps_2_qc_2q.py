@@ -6,14 +6,14 @@ def left_orthgonalize(mps):
     shape = len(mps)
     # deal with weird shapes here
     q,r = np.linalg.qr(mps[0])
-    mps[0] = q/np.sqrt(2)
+    mps[0] = q
     for i in range(1, shape-1):
         temp = np.einsum('ia, ajk', r,  mps[i]).reshape((4,2))
         q,r = np.linalg.qr(temp)
         mps[i] = q.reshape((2,2,2))
     temp = np.einsum('ia, aj', r, mps[-1])
     q,r = np.linalg.qr(temp)
-    mps[-1] = q
+    mps[-1] = q/np.sqrt(2)
 
     
 # def right_orthgonalize(mps):
@@ -31,19 +31,20 @@ def left_orthgonalize(mps):
 
     
 def mps_to_unitaries(mps):
+    # G[j,k,i,l] for MPS with A[j,k,l] as [left, spin, right]
     unitaries = list()
     shape = len(mps)
-    unitaries.append(mps[-1])
-    for i in range(shape-2, 0, -1):
+    unitaries.append(mps[0])
+    for i in range(1, shape-1):
         A = mps[i].reshape((4,2))
         X = sp.linalg.null_space(A.conjugate().transpose())
         G = np.hstack((A, X)).reshape((2,2,2,2))
         unitaries.append(G)
-    A = mps_list[0].reshape((4,1))
+    A = mps_list[-1].reshape((4,1))
     X = sp.linalg.null_space(A.conjugate().transpose())
     G = np.hstack((A, X)).reshape((2,2,2,2))
     unitaries.append(G)
-    return unitaries[::-1]
+    return unitaries
 
 def G_norm(G):
     return np.einsum('ikab, jlab', G, G.conjugate())
@@ -84,30 +85,41 @@ mps_list.append(np.random.normal(size=(2,2)))
 
 # print(mps_list)
 left_orthgonalize(mps_list)
-print(np.einsum('abi, abj', mps_list[1], mps_list[1]))
+print(len(mps_list))
+# print(np.einsum('abi, abj', mps_list[1], mps_list[1]))
 U = mps_to_unitaries(mps_list)
+print(len(U))
+print([x.shape for x in U])
+
+# print(mps_list[1][j,k,l])
+# print(U[1][j,k,0,l])
+
+# print(np.einsum('abk, abij', mps_list[1], U[1]))
+# print(np.einsum('ai, aj', mps_list[0], U[0]))
+# print(np.einsum('ab, abij', mps_list[2], U[2]))
+
 # print([x.shape for x in mps_list])
 # print([x.shape for x in U])
 
-# check = np.einsum('ec, cda, ab, bf, dgfk, eigj', mps_list[0],
-#                   mps_list[1],
-#                   mps_list[2],
-#                   U[2],
-#                   U[1],
-#                   U[0])
+check = np.einsum('ab, bfc, cd, ag, gfke, edji', mps_list[0],
+                  mps_list[1],
+                  mps_list[2],
+                  U[0],
+                  U[1],
+                  U[2])
 # check = np.einsum('ab, bc, cd, jida', mps_list[0],
 #                   mps_list[1],
 #                   U[1],
 #                   U[0])
 # print(np.einsum('ab, jiba', mps_list[0], U[0]))
-# print(check)
+print(check)
 
 # print(mps_list[-1].dot(U[-1]))
           
 
-Umat = build_circuit(U)
-print(Umat.dot(Umat.conjugate().transpose()))
-print(Umat.transpose().dot(Umat))
+# Umat = build_circuit(U)
+# print(Umat.dot(Umat.conjugate().transpose()))
+# print(Umat.transpose().dot(Umat))
 # Umat.transpose().dot(wf)
 
 # # print([G_norm(x) for x in U[1:]])
