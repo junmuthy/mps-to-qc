@@ -63,16 +63,26 @@ def build_wavefunction(mps):
     m1s = mps[-1].shape
     wave_function = np.einsum('ia, aj', wave_function, mps[-1])
     wave_function = wave_function.reshape((m0s[0]*m1s[1], 1))
-    return wave_function.transpose()
+    return wave_function
 
-# def build_circuit(unitaries):
-#     u0s = unitaries[0].shape
-#     u1s = unitaries[1].shape
-#     circuit = np.einsum('jial, kanm', unitaries[0], unitaries[1])
-#     circuit = np.einsum('ijklma, an', circuit, unitaries[2])
-#     circuit = circuit.reshape((8,8))
-#     return circuit
+def build_circuit(unis):
+    shape = len(unis)
+    u0s = unis[0].shape
+    u1s = unis[1].shape
+    circuit = np.einsum('ia, ajkl', unis[0], unis[1])
+    circuit = circuit.reshape((u0s[0]*u1s[1], u1s[2], u1s[3]))
+    for i in range(2, shape):
+        cs = circuit.shape
+        us = unis[i].shape
+        circuit = np.einsum('ika, ajlm', circuit, unis[i])
+        circuit = circuit.reshape((cs[0]*us[1], cs[1]*us[2], us[3]))
+    cs = circuit.shape
+    circuit = circuit.reshape((cs[0], cs[1]*cs[2]))
+    return circuit
+        
+        
 
+    
 def disentangle(mps, unis):
     shape = len(mps)
     assert shape == len(unis)
@@ -99,7 +109,7 @@ def disentangle(mps, unis):
     
     
 # if __name__ == '__main__':        
-L = 2
+L = 3
 mps_list = [np.random.normal(size=(2,2,2)) for i in range(L-2)]
 mps_list.insert(0, np.random.normal(size=(2,2)))
 mps_list.append(np.random.normal(size=(2,2)))
@@ -108,14 +118,14 @@ mps_list.append(np.random.normal(size=(2,2)))
 
 # print(mps_list)
 left_orthgonalize(mps_list)
-print(len(mps_list))
+# print(len(mps_list))
 # print(np.einsum('abi, abj', mps_list[1], mps_list[1]))
 U = mps_to_unitaries(mps_list)
-print(len(U))
-print([x.shape for x in U])
+# print(len(U))
+# print([x.shape for x in U])
 
-vec = disentangle(mps_list, U)
-print(vec)
+# vec = disentangle(mps_list, U)
+# print(vec)
 
 # print(mps_list[1][j,k,l])
 # print(U[1][j,k,0,l])
@@ -143,14 +153,14 @@ print(vec)
 # print(mps_list[-1].dot(U[-1]))
           
 
-# Umat = build_circuit(U)
-# print(Umat.dot(Umat.conjugate().transpose()))
-# print(Umat.transpose().dot(Umat))
-# Umat.transpose().dot(wf)
+Umat = build_circuit(U)
+print(Umat.dot(Umat.conjugate().transpose()))
+print(Umat.transpose().dot(Umat))
 
 # # print([G_norm(x) for x in U[1:]])
 
-# wf = build_wavefunction(mps_list)
+wf = build_wavefunction(mps_list)
+Umat.transpose().dot(wf)
 # print(Umat.dot(wf.transpose()))
 # print(wf)
 # print(wf.dot(wf.transpose()))
