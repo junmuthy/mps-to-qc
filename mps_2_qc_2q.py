@@ -144,32 +144,32 @@ def disentangle(mps, unis):
     """
     shape = len(mps)
     assert shape == len(unis)
-    cap = np.einsum('ai, aj', mps[0], unis[0])
+    cap = np.einsum('ia, ja', mps[0], unis[0].conjugate())
     if shape == 2:
         us = unis[1].shape
-        cap = np.einsum('ac, ab, cbji', cap, mps[1], unis[1])
+        cap = np.einsum('ac, ab, cbji', cap, mps[1], unis[1].conjugate())
         cap = cap.reshape((us[3]*us[2], 1))
         return cap
-    cap = np.einsum('ab, ack, bcij', cap, mps[1], unis[1])
+    cap = np.einsum('ab, ack, bcij', cap, mps[1], unis[1].conjugate())
     for i in range(2, shape-1):
         us = unis[i].shape
         cs = cap.shape
         ms = mps[i].shape
-        cap = np.einsum('abl, cbik, jca', mps[i], unis[i], cap)
+        cap = np.einsum('abl, cbik, jca', mps[i], unis[i].conjugate(), cap)
         cap = cap.reshape((us[2]*cs[0], ms[2], us[3]))
     us = unis[-1].shape
     cs = cap.shape
     ms = mps[-1].shape
-    cap = np.einsum('ab, cbji, kca', mps[-1], unis[-1], cap)
+    cap = np.einsum('ab, cbji, kca', mps[-1], unis[-1].conjugate(), cap)
     cap = cap.reshape((us[3]*us[2]*cs[0], 1))
     return cap
     
         
 # if __name__ == '__main__':        
 L = 3
-mps_list = [np.random.normal(size=(2,2,2)) for i in range(L-2)]
-mps_list.insert(0, np.random.normal(size=(2,2)))
-mps_list.append(np.random.normal(size=(2,2)))
+mps_list = [np.random.normal(size=(2,2,2)) + 1j*np.random.normal(size=(2,2,2)) for i in range(L-2)]
+mps_list.insert(0, np.random.normal(size=(2,2)) + 1j*np.random.normal(size=(2,2)))
+mps_list.append(np.random.normal(size=(2,2)) + 1j*np.random.normal(size=(2,2)))
 
 
 
@@ -181,8 +181,8 @@ U = mps_to_unitaries(mps_list)
 # print(len(U))
 # print([x.shape for x in U])
 
-# vec = disentangle(mps_list, U)
-# print(vec)
+vec = disentangle(mps_list, U)
+print(vec)
 
 # print(mps_list[1][j,k,l])
 # print(U[1][j,k,0,l])
@@ -210,14 +210,14 @@ U = mps_to_unitaries(mps_list)
 # print(mps_list[-1].dot(U[-1]))
           
 
-Umat = build_circuit(U)
-print(Umat.dot(Umat.conjugate().transpose()))
-print(Umat.transpose().dot(Umat))
+# Umat = build_circuit(U)
+# print(Umat.dot(Umat.conjugate().transpose()))
+# print(Umat.transpose().conjugate().dot(Umat))
 
-# # print([G_norm(x) for x in U[1:]])
+# # # print([G_norm(x) for x in U[1:]])
 
-wf = build_wavefunction(mps_list)
-Umat.transpose().dot(wf)
+# wf = build_wavefunction(mps_list)
+# Umat.transpose().conjugate().dot(wf)
 # print(Umat.dot(wf.transpose()))
 # print(wf)
 # print(wf.dot(wf.transpose()))
