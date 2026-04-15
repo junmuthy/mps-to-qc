@@ -95,7 +95,7 @@ def mps_to_unitaries(mps):
         X = sp.linalg.null_space(A.conjugate().transpose())
         G = np.hstack((A, X)).reshape((2,2,2,2))
         unitaries.append(G)
-    A = mps_list[-1].reshape((4,1))
+    A = mps[-1].reshape((4,1))
     X = sp.linalg.null_space(A.conjugate().transpose())
     G = np.hstack((A, X)).reshape((2,2,2,2))
     unitaries.append(G)
@@ -161,10 +161,10 @@ def build_circuit(unis):
     return circuit
         
             
-def disentangle(mps, unis):
+def disentangle(mps:list, unis:list):
     """
     Given an MPS and a list of unitaries, this function disentangles
-    the given MPS into a product state of all zeros.
+    the given MPS.
 
     Parameters
     ----------
@@ -189,11 +189,13 @@ def disentangle(mps, unis):
         us = unis[i].shape
         cs = cap.shape
         ms = mps[i].shape
+        # print(ms, us, cs)
         cap = np.einsum('abl, cbik, jca', mps[i], unis[i].conjugate(), cap)
-        cap = cap.reshape((us[2]*cs[0], ms[2], us[3]))
+        cap = cap.reshape((us[2]*cs[0], us[3], ms[2]))
     us = unis[-1].shape
     cs = cap.shape
     ms = mps[-1].shape
+    # print(ms, us, cs)
     cap = np.einsum('ab, cbji, kca', mps[-1], unis[-1].conjugate(), cap)
     cap = cap.reshape((us[3]*us[2]*cs[0], 1))
     return cap
@@ -217,8 +219,8 @@ if __name__ == '__main__':
     # print(len(U))
     # print([x.shape for x in U])
 
-    # vec = disentangle(mps_list, U)
-    # print(vec)
+    vec = disentangle(mps_list, U)
+    print(vec)
 
     # print(mps_list[1][j,k,l])
     # print(U[1][j,k,0,l])
@@ -247,13 +249,13 @@ if __name__ == '__main__':
 
 
     Umat = build_circuit(U)
-    print(Umat.dot(Umat.conjugate().transpose()))
-    print(Umat.transpose().conjugate().dot(Umat))
+    # print(Umat.dot(Umat.conjugate().transpose()))
+    # print(Umat.transpose().conjugate().dot(Umat))
 
     # # print([G_norm(x) for x in U[1:]])
 
     wf = build_wavefunction(mps_list)
-    Umat.transpose().conjugate().dot(wf)
+    print(Umat.transpose().conjugate().dot(wf))
     # print(Umat.dot(wf.transpose()))
     # print(wf)
     # print(wf.dot(wf.transpose()))
