@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 
 
-def left_orthgonalize(mps):
+def left_orthgonalize(mps:list):
     """
     Takes an MPS of bond dimension 2 and left orthogonalizes it.
 
@@ -34,7 +34,7 @@ def left_orthgonalize(mps):
     return norm
 
 
-def left_orthgonalize_general(mps):
+def left_orthgonalize_general(mps:list):
     """
     Takes an MPS and left orthogonalizes it.
 
@@ -68,7 +68,7 @@ def left_orthgonalize_general(mps):
     return norm
 
     
-def mps_to_unitaries(mps):
+def mps_to_unitaries(mps:list):
     """
     Creates a list of unitaries which disentangle the input MPS.
 
@@ -102,7 +102,7 @@ def mps_to_unitaries(mps):
     return unitaries
 
 
-def build_wavefunction(mps):
+def build_wavefunction(mps:list):
     """
     Constructs the exact state vector from an MPS.
 
@@ -131,7 +131,7 @@ def build_wavefunction(mps):
     return wave_function
 
 
-def build_circuit(unis):
+def build_circuit(unis:list):
     """
     Builds the matrix representation of a quantum circuit that
     disentangles a MPS from the given unitaries.
@@ -202,97 +202,22 @@ def disentangle(mps:list, unis:list):
     
         
 if __name__ == '__main__':        
-    L = 3
+    L = 5
     mps_list = [np.random.normal(size=(2,2,2)) + 1j*np.random.normal(size=(2,2,2)) for i in range(L-2)]
     mps_list.insert(0, np.random.normal(size=(2,2)) + 1j*np.random.normal(size=(2,2)))
     mps_list.append(np.random.normal(size=(2,2)) + 1j*np.random.normal(size=(2,2)))
 
-
-
-    # print(mps_list)
     left_orthgonalize(mps_list)
-    print(mps_list[-1].transpose().conjugate().dot(mps_list[-1]))
-    # exit()
-    # print(len(mps_list))
-    # print(np.einsum('abi, abj', mps_list[1], mps_list[1]))
     U = mps_to_unitaries(mps_list)
-    # print(len(U))
-    # print([x.shape for x in U])
 
-    vec = disentangle(mps_list, U)
-    print(vec)
-
-    # print(mps_list[1][j,k,l])
-    # print(U[1][j,k,0,l])
-
-    # print(np.einsum('abk, abij', mps_list[1], U[1]))
-    # print(np.einsum('ai, aj', mps_list[0], U[0]))
-    # print(np.einsum('ab, abij', mps_list[2], U[2]))
-
-    # print([x.shape for x in mps_list])
-    # print([x.shape for x in U])
-
-    # check = np.einsum('ab, bfc, cd, ag, gfke, edji', mps_list[0],
-    #                   mps_list[1],
-    #                   mps_list[2],
-    #                   U[0],
-    #                   U[1],
-    #                   U[2])
-    # check = np.einsum('ab, bc, cd, jida', mps_list[0],
-    #                   mps_list[1],
-    #                   U[1],
-    #                   U[0])
-    # print(np.einsum('ab, jiba', mps_list[0], U[0]))
-    # print(check)
-
-    # print(mps_list[-1].dot(U[-1]))
-
+    # vec = disentangle(mps_list, U)
+    # print(vec)
 
     Umat = build_circuit(U)
     # print(Umat.dot(Umat.conjugate().transpose()))
     # print(Umat.transpose().conjugate().dot(Umat))
 
-    # # print([G_norm(x) for x in U[1:]])
-
     wf = build_wavefunction(mps_list)
-    print(Umat.transpose().conjugate().dot(wf))
-    # print(Umat.dot(wf.transpose()))
-    # print(wf)
-    # print(wf.dot(wf.transpose()))
-    # wf_orig = np.einsum('ia,ajb,bk', mps_list[0], mps_list[1], mps_list[2])
-    # print(wf_orig.reshape((8,1)))
-
-
-
-
-    # print(mps_list[0].dot(mps_list[0].conjugate().transpose()))
-    # print(mps_list)
-
-    # A = mps_list[1].reshape((4,2))
-    # print(A.conjugate().transpose().dot(A))
-    # X = sp.linalg.null_space(A.conjugate().transpose())
-    # print(X)
-    # G = np.hstack((A, X)).reshape((2,2,2,2))
-    # # G = np.zeros((2,2,2,2))
-    # # G[0,:,:,:] = mps_list[1]
-    # # G[1,:,:,:] = X.reshape((2,2,2))
-    # # G = G.transpose((0,3,1,2))
-    # print(np.einsum('ikab, jlab', G, G.conjugate()))
-    # print(np.outer(np.eye(2), np.eye(2)).reshape((2,2,2,2)))
-
-    # A = mps_list[-1].reshape((4,1))
-    # print(A.conjugate().transpose().dot(A))
-    # X = sp.linalg.null_space(A.conjugate().transpose())
-    # print(X)
-    # # print(X.transpose().dot(X))
-    # # G = np.zeros((2,2,2,2))
-    # G = np.hstack((A, X)).reshape((2,2,2,2))
-
-    # # G[0,0,:,:] = A
-    # # G[0,1,:,:] = X[:,0].reshape((2,2))
-    # # G[1,0,:,:] = X[:,1].reshape((2,2))
-    # # G[1,1,:,:] = X[:,2].reshape((2,2))
-    # # # G = G.transpose((0,3,1,2))
-    # print(np.einsum('ikab, jlab', G, G.conjugate()))
-    # print(np.outer(np.eye(2), np.eye(2)).reshape((2,2,2,2)))
+    print(wf.conjugate().transpose().dot(wf))
+    # print(Umat.transpose().conjugate().dot(wf))
 
