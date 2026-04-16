@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 
 
-def left_orthgonalize(mps:list):
+def left_orthgonalize(mps: list) -> np.ndarray:
     """
     Takes an MPS of bond dimension 2 and left orthogonalizes it.
 
@@ -21,7 +21,6 @@ def left_orthgonalize(mps:list):
     
     """
     shape = len(mps)
-    # deal with weird shapes here
     q, norm = np.linalg.qr(mps[0])
     mps[0] = q
     for i in range(1, shape-1):
@@ -34,7 +33,38 @@ def left_orthgonalize(mps:list):
     return norm
 
 
-def left_orthgonalize_general(mps:list):
+# def right_orthgonalize(mps: list) -> np.ndarray:
+#     """
+#     Takes an MPS of bond dimension 2 and right orthogonalizes it.
+
+#     Parameters
+#     ----------
+#     mps : A list of matrix product states of bond dimension 2.
+
+#     Returns
+#     -------
+#     norm : The final normalization of the MPS stored in a
+#            Hermitian matrix.
+
+#     Notes
+#     -----
+#     Orthonalizes in place.
+    
+#     """
+#     shape = len(mps)
+#     q, norm = np.linalg.qr(mps[0])
+#     mps[0] = q
+#     for i in range(1, shape-1):
+#         temp = np.einsum('ia, ajk', norm,  mps[i]).reshape((4,2))
+#         q, norm = np.linalg.qr(temp)
+#         mps[i] = q.reshape((2,2,2))
+#     temp = np.einsum('ia, aj', norm, mps[-1])
+#     q, norm = np.linalg.qr(temp)
+#     mps[-1] = q/np.linalg.norm(q)
+#     return norm
+
+
+def left_orthgonalize_general(mps: list) -> np.ndarray:
     """
     Takes an MPS and left orthogonalizes it.
 
@@ -68,7 +98,7 @@ def left_orthgonalize_general(mps:list):
     return norm
 
     
-def mps_to_unitaries(mps:list):
+def mps_to_unitaries(mps:list) -> list:
     """
     Creates a list of unitaries which disentangle the input MPS.
 
@@ -102,7 +132,7 @@ def mps_to_unitaries(mps:list):
     return unitaries
 
 
-def build_wavefunction(mps:list):
+def build_wavefunction(mps:list) -> np.ndarray:
     """
     Constructs the exact state vector from an MPS.
 
@@ -131,7 +161,7 @@ def build_wavefunction(mps:list):
     return wave_function
 
 
-def build_circuit(unis:list):
+def build_circuit(unis:list) -> np.ndarray:
     """
     Builds the matrix representation of a quantum circuit that
     disentangles a MPS from the given unitaries.
@@ -161,7 +191,7 @@ def build_circuit(unis:list):
     return circuit
         
             
-def disentangle(mps:list, unis:list):
+def disentangle(mps:list, unis:list) -> np.float64:
     """
     Given an MPS and a list of unitaries, this function disentangles
     the given MPS.
