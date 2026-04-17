@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 
 
-def left_orthgonalize(mps: list) -> np.ndarray:
+def left_orthgonalize(mps: list[np.ndarray]) -> np.ndarray:
     """
     Takes an MPS of bond dimension 2 and left orthogonalizes it.
 
@@ -64,7 +64,7 @@ def left_orthgonalize(mps: list) -> np.ndarray:
 #     return norm
 
 
-def left_orthgonalize_general(mps: list) -> np.ndarray:
+def left_orthgonalize_general(mps: list[np.ndarray]) -> np.ndarray:
     """
     Takes an MPS and left orthogonalizes it.
 
@@ -98,7 +98,7 @@ def left_orthgonalize_general(mps: list) -> np.ndarray:
     return norm
 
     
-def mps_to_unitaries(mps:list) -> list:
+def mps_to_unitaries(mps:list[np.ndarray]) -> list[np.ndarray]:
     """
     Creates a list of unitaries which disentangle the input MPS.
 
@@ -132,7 +132,7 @@ def mps_to_unitaries(mps:list) -> list:
     return unitaries
 
 
-def build_wavefunction(mps:list) -> np.ndarray:
+def build_wavefunction(mps:list[np.ndarray]) -> np.ndarray:
     """
     Constructs the exact state vector from an MPS.
 
@@ -161,7 +161,7 @@ def build_wavefunction(mps:list) -> np.ndarray:
     return wave_function
 
 
-def build_circuit(unis:list) -> np.ndarray:
+def build_circuit(unis:list[np.ndarray]) -> np.ndarray:
     """
     Builds the matrix representation of a quantum circuit that
     disentangles a MPS from the given unitaries.
@@ -191,7 +191,7 @@ def build_circuit(unis:list) -> np.ndarray:
     return circuit
         
             
-def disentangle(mps:list, unis:list) -> np.float64:
+def disentangle(mps: list[np.ndarray], unis: list[np.ndarray]) -> np.float64:
     """
     Given an MPS and a list of unitaries, this function disentangles
     the given MPS.
@@ -208,7 +208,7 @@ def disentangle(mps:list, unis:list) -> np.float64:
     """
     shape = len(mps)
     assert shape == len(unis)
-    cap = np.einsum('ia, ja', mps[0], unis[0].conjugate())
+    cap = np.einsum('ai, aj', mps[0], unis[0].conjugate())
     if shape == 2:
         us = unis[1].shape
         cap = np.einsum('ac, ab, cbji', cap, mps[1], unis[1].conjugate())
