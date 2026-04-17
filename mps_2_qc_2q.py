@@ -28,8 +28,9 @@ def left_orthgonalize(mps: list[np.ndarray]) -> np.ndarray:
         q, norm = np.linalg.qr(temp)
         mps[i] = q.reshape((2,2,2))
     temp = np.einsum('ia, aj', norm, mps[-1])
-    q, norm = np.linalg.qr(temp)
-    mps[-1] = q/np.linalg.norm(q)
+    ts = temp.shape
+    q, norm = np.linalg.qr(temp.reshape((ts[0]*ts[1], 1)))
+    mps[-1] = q.reshape((ts[0], ts[1]))
     return norm
 
 
@@ -62,8 +63,9 @@ def left_orthgonalize_general(mps: list[np.ndarray]) -> np.ndarray:
         qs = q.shape
         mps[i] = q.reshape((ns[0],ms[1],qs[1]))
     temp = np.einsum('ia, aj', norm, mps[-1])
-    q, norm = np.linalg.qr(temp)
-    mps[-1] = q/np.linalg.norm(q)
+    ts = temp.shape
+    q, norm = np.linalg.qr(temp.reshape((ts[0]*ts[1], 1)))
+    mps[-1] = q.reshape((ts[0], ts[1]))
     return norm
 
     
@@ -207,16 +209,21 @@ if __name__ == '__main__':
     mps_list.append(np.random.normal(size=(2,2)) + 1j*np.random.normal(size=(2,2)))
 
     left_orthgonalize(mps_list)
-    U = mps_to_unitaries(mps_list)
+    # print([x.shape for x in mps_list])
+    print([np.einsum('abi, abj', mps_list[i], mps_list[i].conjugate()) for
+           i in range(1, len(mps_list)-1)])
+    print(np.einsum('ab, ab', mps_list[-1], mps_list[-1].conjugate()))
+    print(np.einsum('ai, aj', mps_list[0], mps_list[0].conjugate()))
+    # U = mps_to_unitaries(mps_list)
 
-    vec = disentangle(mps_list, U)
-    print(vec)
+    # vec = disentangle(mps_list, U)
+    # print(vec)
 
-    Umat = build_circuit(U)
-    print(Umat.dot(Umat.conjugate().transpose()))
-    print(Umat.transpose().conjugate().dot(Umat))
+    # Umat = build_circuit(U)
+    # print(Umat.dot(Umat.conjugate().transpose()))
+    # print(Umat.transpose().conjugate().dot(Umat))
 
-    wf = build_wavefunction(mps_list)
-    print(wf.conjugate().transpose().dot(wf))
-    print(Umat.transpose().conjugate().dot(wf))
+    # wf = build_wavefunction(mps_list)
+    # print(wf.conjugate().transpose().dot(wf))
+    # print(Umat.transpose().conjugate().dot(wf))
 

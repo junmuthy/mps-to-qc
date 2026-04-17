@@ -124,9 +124,10 @@ def truncate_mps_to_two(mps: list[np.ndarray]) -> list[np.ndarray]:
     theta = np.einsum('ia, aj', coming.reshape((cs[0]*cs[1], cs[2])),
                       mps[-1])
     Al, coming, alpha = matrix_split(theta)
+    cs = coming.shape
     trunc_mps.append(Al.reshape((cs[0], cs[1], alpha)))
-    q, r = np.linalg.qr(coming)
-    trunc_mps.append(q / np.sqrt(2))
+    q, r = np.linalg.qr(coming.reshape((cs[0]*cs[1], 1)))
+    trunc_mps.append(q.reshape((cs[0], cs[1])))
     return trunc_mps
 
 
@@ -207,8 +208,9 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
     cap = cap.reshape((cs[0]*cs[1], cs[2]))
     Al, cap, alpha = matrix_split(cap, exact=True)
     new_mps.append(Al.reshape((cs[0], cs[1], alpha)))
-    q,r = np.linalg.qr(cap)
-    new_mps.append(q / np.linalg.norm(q))
+    cs = cap.shape
+    q,r = np.linalg.qr(cap.reshape((cs[0]*cs[1], 1)))
+    new_mps.append(q.reshape((cs[0], cs[1])))
     # print(ms, us, cs)
     # cap = np.einsum('ab, cbji, kca', mps[-1], unis[-1].conjugate(), cap)
     # cap = cap.reshape((us[3]*us[2]*cs[0], 1))
@@ -218,8 +220,8 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
 
 
 if __name__ == '__main__':
-    L = 5
-    dim = 10
+    L = 16
+    dim = 3
     mps_list = [np.random.normal(size=(dim,2,dim)) for i in range(L-2)]
     mps_list.insert(0, np.random.normal(size=(2,dim)))
     mps_list.append(np.random.normal(size=(dim,2)))
@@ -279,4 +281,4 @@ if __name__ == '__main__':
         vec = m2q.build_wavefunction(current_list)
         # print(vec)
         print(-1*np.log(np.abs(vec.conjugate().transpose().dot(psi0)))/L)
-        # print([x.shape for x in current_list])
+        print([x.shape for x in current_list])
