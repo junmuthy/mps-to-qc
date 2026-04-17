@@ -19,7 +19,7 @@ def matrix_split(mat: np.ndarray, dbond: int=2, exact: bool=False, split: str='l
     elif split == 'right':
         sl = np.diag(s)
         Al = U.dot(sl[:, :cut])
-        Ar = V
+        Ar = V[:cut, :]
         return [Al, Ar, cut]
     elif split == 'center':
         sl = np.diag(np.sqrt(s))
@@ -105,14 +105,27 @@ def split_tensor(left: np.ndarray, right: np.ndarray, dbond: int = 2, where: str
     
 def truncate_mps_to_two(mps: list[np.ndarray]) -> list[np.ndarray]:
     trunc_mps = list()
-    current, coming = split_tensor(mps[0], mps[1], where='start')
-    trunc_mps.append(current)
+    ms1 = mps[1].shape
+    theta = np.einsum('ia, aj', mps[0], mps[1].reshape((ms1[0], ms1[1]*ms1[2])))
+    Al, coming, alpha = matrix_split(theta)
+    trunc_mps.append(Al)
+    coming = coming.reshape((alpha, ms1[1], ms1[2]))
     for i in range(2, len(mps)-1):
-        current, coming = split_tensor(coming, mps[i])
-        trunc_mps.append(current)
-    current, coming = split_tensor(coming, mps[-1], where='end')
-    trunc_mps.append(current)
-    trunc_mps.append(coming)
+        cs = coming.shape
+        ms = mps[i].shape
+        theta = np.einsum('ia, aj', coming.reshape((cs[0]*cs[1], cs[2])),
+                          mps[i].reshape((ms[0], ms[1]*ms[2])))
+        Al, coming, alpha = matrix_split(theta)
+        trunc_mps.append(Al.reshape((cs[0], cs[1], alpha)))
+        coming = coming.reshape((alpha, ms[1], ms[2]))
+    cs = coming.shape
+    ms = mps[-1].shape
+    theta = np.einsum('ia, aj', coming.reshape((cs[0]*cs[1], cs[2])),
+                      mps[-1])
+    Al, coming, alpha = matrix_split(theta)
+    trunc_mps.append(Al.reshape((cs[0], cs[1], alpha)))
+    q, r = np.linalg.qr(coming)
+    trunc_mps.append(q / np.sqrt(2))
     return trunc_mps
 
 
@@ -161,27 +174,40 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
     us = unis[2].shape
     cs = cap.shape
     ms = mps[2].shape
-    coming = np.einsum('jam, iakl', mps[2], unis[2].conjugate()).reshape((us[0]*ms[0], us[2], us[3]*ms[2]))
-    Al, cap = split_tensor(cap, coming, where='start', svd_only=True)
+    coming = np.einsum('jam, iakl', mps[2], unis[2].conjugate()).reshape((us[0]*ms[0], us[2]*us[3]*ms[2]))
+    coming = np.einsum('ia, aj', cap, coming)
+    Al, cap, alpha = matrix_split(coming, exact=True)
+    Al = Al.reshape((us[2], alpha))
+    cap = cap.reshape((alpha, us[2], us[3]*ms[2]))
+    # Al, cap = split_tensor(cap, coming, where='start', svd_only=True)
     new_mps.append(Al)
     for i in range(3, shape-1):
         us = unis[i].shape
         cs = cap.shape
         ms = mps[i].shape
-        coming = np.einsum('jam, iakl', mps[i], unis[i].conjugate()).reshape((us[0]*ms[0], us[2], us[3]*ms[2]))
-        Al, cap = split_tensor(cap, coming, where='mid', svd_only=True)
+        coming = np.einsum('jam, iakl', mps[i], unis[i].conjugate()).reshape((us[0]*ms[0], us[2]*us[3]*ms[2]))
+        coming = np.einsum('ia, aj', cap.reshape((cs[0]*cs[1], cs[2])), coming)
+        Al, cap, alpha = matrix_split(coming, exact=True)
+        Al = Al.reshape((cs[0], cs[1], alpha))
+        cap = cap.reshape((alpha, us[2], us[3]*ms[2]))
+        # Al, cap = split_tensor(cap, coming, where='mid', svd_only=True)
         new_mps.append(Al)
     us = unis[-1].shape
     cs = cap.shape
     ms = mps[-1].shape
-    coming = np.einsum('ja, iakl', mps[-1], unis[-1].conjugate()).reshape((us[0]*ms[0], us[2], us[3]))
-    Al, cap = split_tensor(cap, coming, where='mid', svd_only=True)
+    coming = np.einsum('ja, iakl', mps[-1], unis[-1].conjugate()).reshape((us[0]*ms[0], us[2]*us[3]))
+    coming = np.einsum('ia, aj', cap.reshape((cs[0]*cs[1], cs[2])), coming)
+    Al, cap, alpha = matrix_split(coming, exact=True)
+    Al = Al.reshape((cs[0], cs[1], alpha))
+    cap = cap.reshape((alpha, us[2], us[3]))
+    # Al, cap = split_tensor(cap, coming, where='mid', svd_only=True)
     new_mps.append(Al)
     cs = cap.shape
     cap = cap.reshape((cs[0]*cs[1], cs[2]))
-    Al, cap, alpha = matrix_split(cap, svd_only=True)
+    Al, cap, alpha = matrix_split(cap, exact=True)
     new_mps.append(Al.reshape((cs[0], cs[1], alpha)))
-    new_mps.append(cap)
+    q,r = np.linalg.qr(cap)
+    new_mps.append(q / np.linalg.norm(q))
     # print(ms, us, cs)
     # cap = np.einsum('ab, cbji, kca', mps[-1], unis[-1].conjugate(), cap)
     # cap = cap.reshape((us[3]*us[2]*cs[0], 1))
@@ -258,7 +284,7 @@ if __name__ == '__main__':
     m2q.left_orthgonalize_general(mps_list)
     # print(mps_list[0])
     # print([x.shape for x in mps_list])
-    psi0 = reduce(np.kron, [np.array([1., 0.]) for x in range(L)])
+    # psi0 = reduce(np.kron, [np.array([1., 0.]) for x in range(L)])
     # print(mps_list[0].dot(mps_list[0].conjugate().transpose()))
     # print(np.einsum('abi, abj', mps_list[2], mps_list[2].conjugate()))
     # print(np.trace(mps_list[-1].dot(mps_list[-1].conjugate().transpose())))
@@ -269,10 +295,13 @@ if __name__ == '__main__':
     # unitary_layers = list()
     for i in range(num_layers):
         trunc_mps = truncate_mps_to_two(current_list)
-        m2q.left_orthgonalize(trunc_mps)
+        # print([np.einsum('abi, abj', trunc_mps[i], trunc_mps[i].conjugate()) for
+        #        i in range(1, len(trunc_mps)-1)])
+        # print(np.einsum('ab, ab', trunc_mps[-1], trunc_mps[-1].conjugate()))
+        # m2q.left_orthgonalize(trunc_mps)
         # print([x.shape for x in trunc_mps])
         units = m2q.mps_to_unitaries(trunc_mps)
-        print("+")
+        # print("+")
         # U = m2q.build_circuit(units)
         # wf = m2q.build_wavefunction(current_list)
         # new = U.conjugate().transpose().dot(wf)
@@ -285,17 +314,21 @@ if __name__ == '__main__':
         # vec = m2q.disentangle(trunc_mps, units)
         # print(vec)
         #     unitary_layers.append(units)
+
         current_list = update_mps(current_list, units)
-        # vec = m2q.disentangle(current_list, units)
-        # print(vec.conjugate().transpose().dot(psi0))
+        # print([np.einsum('abi, abj', current_list[i], current_list[i].conjugate()) for
+        #        i in range(1, len(current_list)-1)])
+        # print(np.einsum('ab, ab', current_list[-1], current_list[-1].conjugate()))
+        # # vec = m2q.disentangle(current_list, units)
+        # # print(vec.conjugate().transpose().dot(psi0))
+        # # # print([x.shape for x in current_list])
+        # # # print([x.shape for x in current_list])
         # # print([x.shape for x in current_list])
-        # # print([x.shape for x in current_list])
-        # print([x.shape for x in current_list])
-        m2q.left_orthgonalize_general(current_list)
-        print(np.einsum('ab, ab', current_list[-1], current_list[-1].conjugate()))
+        # m2q.left_orthgonalize_general(current_list)
+        # print(np.einsum('ab, ab', current_list[-1], current_list[-1].conjugate()))
         # vec = m2q.disentangle(current_list, units)
         # print(np.abs(new.conjugate().transpose().dot(psi0))**2)
         # print('=')
         # # vec = m2q.build_wavefunction(current_list)
         # # print(vec.conjugate().transpose().dot(psi0))
-        # print([x.shape for x in current_list])
+        print([x.shape for x in current_list])
