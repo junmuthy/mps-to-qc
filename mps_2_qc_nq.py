@@ -2,6 +2,7 @@ from functools import reduce
 import numpy as np
 import scipy as sp
 import mps_2_qc_2q as m2q
+import copy
 
 
 def matrix_split(mat: np.ndarray, dbond: int=2, exact: bool=False, split: str='left') -> list[np.ndarray, np.ndarray, int]:
@@ -31,76 +32,76 @@ def matrix_split(mat: np.ndarray, dbond: int=2, exact: bool=False, split: str='l
         
 
 
-def split_tensor(left: np.ndarray, right: np.ndarray, dbond: int = 2, where: str = 'mid', svd_only: bool = False) -> tuple[np.ndarray, np.ndarray]:
-    if svd_only:
-        if where == 'mid':
-            ls = left.shape
-            rs = right.shape
-            mat = np.einsum('ija, akl', left, right).reshape((ls[0]*ls[1], rs[1]*rs[2]))
-            U, s, Vd = np.linalg.svd(mat, full_matrices=False)
-            print(s)
-            cut = len(s[s > 1e-8])
-            sl = np.diag(np.sqrt(s))
-            Al = U.dot(sl[:, :cut]).reshape((ls[0], ls[1], cut))
-            Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1], rs[2]))
-            return (Al, Ar)
-        elif where == 'start':
-            ls = left.shape
-            rs = right.shape
-            mat = np.einsum('ia, ajk', left, right).reshape((ls[0], rs[1]*rs[2]))
-            U, s, Vd = np.linalg.svd(mat, full_matrices=False)
-            print(s)
-            cut = len(s[s > 1e-8])
-            sl = np.diag(np.sqrt(s))
-            Al = U.dot(sl[:, :cut]).reshape((ls[0], cut))
-            Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1], rs[2]))
-            return (Al, Ar)
-        elif where == 'end':
-            ls = left.shape
-            rs = right.shape
-            mat = np.einsum('ija, ak', left, right).reshape((ls[0]*ls[1], rs[1]))
-            U, s, Vd = np.linalg.svd(mat, full_matrices=False)
-            print(s)
-            cut = len(s[s > 1e-8])
-            sl = np.diag(np.sqrt(s))
-            Al = U.dot(sl[:, :cut]).reshape((ls[0], ls[1], cut))
-            Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1]))
-            return (Al, Ar)
-        else:
-            raise KeyError("where argument must be 'mid', 'start', or 'end'")
-    else:
-        if where == 'mid':
-            ls = left.shape
-            rs = right.shape
-            mat = np.einsum('ija, akl', left, right).reshape((ls[0]*ls[1], rs[1]*rs[2]))
-            U, s, Vd = np.linalg.svd(mat, full_matrices=False)
-            cut = min(len(s[s > 1e-8]), dbond)
-            sl = np.diag(np.sqrt(s))
-            Al = U.dot(sl[:, :cut]).reshape((ls[0], ls[1], cut))
-            Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1], rs[2]))
-            return (Al, Ar)
-        elif where == 'start':
-            ls = left.shape
-            rs = right.shape
-            mat = np.einsum('ia, ajk', left, right).reshape((ls[0], rs[1]*rs[2]))
-            U, s, Vd = np.linalg.svd(mat, full_matrices=False)
-            cut = min(len(s[s > 1e-8]), dbond)
-            sl = np.diag(np.sqrt(s))
-            Al = U.dot(sl[:, :cut]).reshape((ls[0], cut))
-            Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1], rs[2]))
-            return (Al, Ar)
-        elif where == 'end':
-            ls = left.shape
-            rs = right.shape
-            mat = np.einsum('ija, ak', left, right).reshape((ls[0]*ls[1], rs[1]))
-            U, s, Vd = np.linalg.svd(mat, full_matrices=False)
-            cut = min(len(s[s > 1e-8]), dbond)
-            sl = np.diag(np.sqrt(s))
-            Al = U.dot(sl[:, :cut]).reshape((ls[0], ls[1], cut))
-            Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1]))
-            return (Al, Ar)
-        else:
-            raise KeyError("where argument must be 'mid', 'start', or 'end'")
+# def split_tensor(left: np.ndarray, right: np.ndarray, dbond: int = 2, where: str = 'mid', svd_only: bool = False) -> tuple[np.ndarray, np.ndarray]:
+#     if svd_only:
+#         if where == 'mid':
+#             ls = left.shape
+#             rs = right.shape
+#             mat = np.einsum('ija, akl', left, right).reshape((ls[0]*ls[1], rs[1]*rs[2]))
+#             U, s, Vd = np.linalg.svd(mat, full_matrices=False)
+#             print(s)
+#             cut = len(s[s > 1e-8])
+#             sl = np.diag(np.sqrt(s))
+#             Al = U.dot(sl[:, :cut]).reshape((ls[0], ls[1], cut))
+#             Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1], rs[2]))
+#             return (Al, Ar)
+#         elif where == 'start':
+#             ls = left.shape
+#             rs = right.shape
+#             mat = np.einsum('ia, ajk', left, right).reshape((ls[0], rs[1]*rs[2]))
+#             U, s, Vd = np.linalg.svd(mat, full_matrices=False)
+#             print(s)
+#             cut = len(s[s > 1e-8])
+#             sl = np.diag(np.sqrt(s))
+#             Al = U.dot(sl[:, :cut]).reshape((ls[0], cut))
+#             Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1], rs[2]))
+#             return (Al, Ar)
+#         elif where == 'end':
+#             ls = left.shape
+#             rs = right.shape
+#             mat = np.einsum('ija, ak', left, right).reshape((ls[0]*ls[1], rs[1]))
+#             U, s, Vd = np.linalg.svd(mat, full_matrices=False)
+#             print(s)
+#             cut = len(s[s > 1e-8])
+#             sl = np.diag(np.sqrt(s))
+#             Al = U.dot(sl[:, :cut]).reshape((ls[0], ls[1], cut))
+#             Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1]))
+#             return (Al, Ar)
+#         else:
+#             raise KeyError("where argument must be 'mid', 'start', or 'end'")
+#     else:
+#         if where == 'mid':
+#             ls = left.shape
+#             rs = right.shape
+#             mat = np.einsum('ija, akl', left, right).reshape((ls[0]*ls[1], rs[1]*rs[2]))
+#             U, s, Vd = np.linalg.svd(mat, full_matrices=False)
+#             cut = min(len(s[s > 1e-8]), dbond)
+#             sl = np.diag(np.sqrt(s))
+#             Al = U.dot(sl[:, :cut]).reshape((ls[0], ls[1], cut))
+#             Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1], rs[2]))
+#             return (Al, Ar)
+#         elif where == 'start':
+#             ls = left.shape
+#             rs = right.shape
+#             mat = np.einsum('ia, ajk', left, right).reshape((ls[0], rs[1]*rs[2]))
+#             U, s, Vd = np.linalg.svd(mat, full_matrices=False)
+#             cut = min(len(s[s > 1e-8]), dbond)
+#             sl = np.diag(np.sqrt(s))
+#             Al = U.dot(sl[:, :cut]).reshape((ls[0], cut))
+#             Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1], rs[2]))
+#             return (Al, Ar)
+#         elif where == 'end':
+#             ls = left.shape
+#             rs = right.shape
+#             mat = np.einsum('ija, ak', left, right).reshape((ls[0]*ls[1], rs[1]))
+#             U, s, Vd = np.linalg.svd(mat, full_matrices=False)
+#             cut = min(len(s[s > 1e-8]), dbond)
+#             sl = np.diag(np.sqrt(s))
+#             Al = U.dot(sl[:, :cut]).reshape((ls[0], ls[1], cut))
+#             Ar = sl[:cut, :].dot(Vd).reshape((cut, rs[1]))
+#             return (Al, Ar)
+#         else:
+#             raise KeyError("where argument must be 'mid', 'start', or 'end'")
 
     
 def truncate_mps_to_two(mps: list[np.ndarray]) -> list[np.ndarray]:
@@ -214,69 +215,11 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
     return new_mps
 
 
-# def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray]:
-#     """
-#     Given an MPS and a list of unitaries, this function disentangles
-#     the given MPS.
-
-#     Parameters
-#     ----------
-#     mps  : A list of MPS.
-#     unis : A list of unitaries that disentangle the given MPS.
-
-#     Returns
-#     -------
-#     cap : The final disentangled statevector.
-    
-#     """
-#     shape = len(mps)
-#     assert shape == len(unis)
-#     new_mps = list()
-#     cap = np.einsum('ai, aj', mps[0], unis[0].conjugate())
-#     # if shape == 2:
-#     #     us = unis[1].shape
-#     #     cap = np.einsum('ac, ab, cbji', cap, mps[1], unis[1].conjugate())
-#     #     cap = cap.reshape((us[3]*us[2], 1))
-#     #     return cap
-#     ms = mps[1].shape
-#     us = unis[1].shape
-#     cap = np.einsum('ab, ack, bcij', cap, mps[1], unis[1].conjugate()).reshape((us[2], us[3]*ms[2]))
-#     Al, cap, alpha = matrix_split(cap, svd_only=True)
-#     new_mps.append(Al)    
-#     for i in range(2, shape-1):
-#         us = unis[i].shape
-#         ms = mps[i].shape
-#         cs = cap.shape
-#         # print(ms, us)
-#         coming = np.einsum('jam, iakl', mps[i], unis[i].conjugate()).reshape((us[0]*ms[0], us[2], us[3]*ms[2]))
-#         # print(coming.shape)
-#         coming = np.einsum('ia, ajk', cap, coming).reshape((cs[0]*us[2], us[3]*ms[2]))
-#         # print(coming.shape)
-#         Al, cap, alpha = matrix_split(coming, svd_only=True)
-#         Al = Al.reshape((cs[0], us[2], alpha))
-#         # print(Al.shape, cap.shape, alpha)
-#         new_mps.append(Al)
-#     # print([x.shape for x in new_mps])
-#     us = unis[-1].shape
-#     ms = mps[-1].shape
-#     cs = cap.shape
-#     coming = np.einsum('ja, iakl', mps[-1], unis[-1].conjugate()).reshape((us[0]*ms[0], us[2], us[3]))
-#     coming = np.einsum('ia, ajk', cap, coming).reshape((alpha*us[2], us[3]))
-#     Al, cap, alpha = matrix_split(coming, svd_only=True)
-#     Al = Al.reshape((cs[0], us[2], alpha))
-#     new_mps.append(Al)
-#     new_mps.append(cap)
-#     return new_mps
-
-
-# def make_mps_from_vec(vec: np.ndarray, L: int) -> list[np.ndarray]:
-#     sites = vec.reshape(tuple([2] + [2]*(L-1)))
-#     matrix_split(sites,  
 
 
 if __name__ == '__main__':
-    L = 8
-    dim = 3
+    L = 5
+    dim = 10
     mps_list = [np.random.normal(size=(dim,2,dim)) for i in range(L-2)]
     mps_list.insert(0, np.random.normal(size=(2,dim)))
     mps_list.append(np.random.normal(size=(dim,2)))
@@ -284,14 +227,15 @@ if __name__ == '__main__':
     m2q.left_orthgonalize_general(mps_list)
     # print(mps_list[0])
     # print([x.shape for x in mps_list])
-    # psi0 = reduce(np.kron, [np.array([1., 0.]) for x in range(L)])
+    psi0 = reduce(np.kron, [np.array([1., 0.]) for x in range(L)])
     # print(mps_list[0].dot(mps_list[0].conjugate().transpose()))
     # print(np.einsum('abi, abj', mps_list[2], mps_list[2].conjugate()))
     # print(np.trace(mps_list[-1].dot(mps_list[-1].conjugate().transpose())))
     # print([x.shape for x in mps_list])
     # print(mps_list[0].transpose().dot(mps_list[0]))
-    num_layers = 5
-    current_list = mps_list.copy()
+    num_layers = 100
+    current_list = copy.deepcopy(mps_list)
+    # current_list = mps_list.copy()
     # unitary_layers = list()
     for i in range(num_layers):
         trunc_mps = truncate_mps_to_two(current_list)
@@ -301,6 +245,7 @@ if __name__ == '__main__':
         # m2q.left_orthgonalize(trunc_mps)
         # print([x.shape for x in trunc_mps])
         units = m2q.mps_to_unitaries(trunc_mps)
+        # print(units[1])
         # print("+")
         # U = m2q.build_circuit(units)
         # wf = m2q.build_wavefunction(current_list)
@@ -316,6 +261,8 @@ if __name__ == '__main__':
         #     unitary_layers.append(units)
 
         current_list = update_mps(current_list, units)
+        # print(mps_list[0])
+        # print(current_list[0])
         # print([np.einsum('abi, abj', current_list[i], current_list[i].conjugate()) for
         #        i in range(1, len(current_list)-1)])
         # print(np.einsum('ab, ab', current_list[-1], current_list[-1].conjugate()))
@@ -329,6 +276,7 @@ if __name__ == '__main__':
         # vec = m2q.disentangle(current_list, units)
         # print(np.abs(new.conjugate().transpose().dot(psi0))**2)
         # print('=')
-        # # vec = m2q.build_wavefunction(current_list)
-        # # print(vec.conjugate().transpose().dot(psi0))
-        print([x.shape for x in current_list])
+        vec = m2q.build_wavefunction(current_list)
+        # print(vec)
+        print(-1*np.log(np.abs(vec.conjugate().transpose().dot(psi0)))/L)
+        # print([x.shape for x in current_list])

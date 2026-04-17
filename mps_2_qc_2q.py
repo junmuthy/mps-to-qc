@@ -33,37 +33,6 @@ def left_orthgonalize(mps: list[np.ndarray]) -> np.ndarray:
     return norm
 
 
-# def right_orthgonalize(mps: list) -> np.ndarray:
-#     """
-#     Takes an MPS of bond dimension 2 and right orthogonalizes it.
-
-#     Parameters
-#     ----------
-#     mps : A list of matrix product states of bond dimension 2.
-
-#     Returns
-#     -------
-#     norm : The final normalization of the MPS stored in a
-#            Hermitian matrix.
-
-#     Notes
-#     -----
-#     Orthonalizes in place.
-    
-#     """
-#     shape = len(mps)
-#     q, norm = np.linalg.qr(mps[0])
-#     mps[0] = q
-#     for i in range(1, shape-1):
-#         temp = np.einsum('ia, ajk', norm,  mps[i]).reshape((4,2))
-#         q, norm = np.linalg.qr(temp)
-#         mps[i] = q.reshape((2,2,2))
-#     temp = np.einsum('ia, aj', norm, mps[-1])
-#     q, norm = np.linalg.qr(temp)
-#     mps[-1] = q/np.linalg.norm(q)
-#     return norm
-
-
 def left_orthgonalize_general(mps: list[np.ndarray]) -> np.ndarray:
     """
     Takes an MPS and left orthogonalizes it.
@@ -240,14 +209,14 @@ if __name__ == '__main__':
     left_orthgonalize(mps_list)
     U = mps_to_unitaries(mps_list)
 
-    # vec = disentangle(mps_list, U)
-    # print(vec)
+    vec = disentangle(mps_list, U)
+    print(vec)
 
     Umat = build_circuit(U)
-    # print(Umat.dot(Umat.conjugate().transpose()))
-    # print(Umat.transpose().conjugate().dot(Umat))
+    print(Umat.dot(Umat.conjugate().transpose()))
+    print(Umat.transpose().conjugate().dot(Umat))
 
     wf = build_wavefunction(mps_list)
     print(wf.conjugate().transpose().dot(wf))
-    # print(Umat.transpose().conjugate().dot(wf))
+    print(Umat.transpose().conjugate().dot(wf))
 
