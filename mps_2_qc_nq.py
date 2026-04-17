@@ -4,17 +4,31 @@ import scipy as sp
 import mps_2_qc_2q as m2q
 
 
-def matrix_split(mat: np.ndarray, dbond:int=2, svd_only:bool=False) -> list[np.ndarray, np.ndarray, int]:
-    U, s, Vd = np.linalg.svd(mat, full_matrices=False)
+def matrix_split(mat: np.ndarray, dbond: int=2, exact: bool=False, split: str='left') -> list[np.ndarray, np.ndarray, int]:
+    U, s, V = np.linalg.svd(mat, full_matrices=False)
     # print(s)
-    if svd_only:
-        cut = len(s[s > 1e-8])
+    if exact:
+        cut = len(s[s > 1e-12])
     else:
-        cut = min(len(s[s > 1e-8]), dbond)
-    sl = np.diag(np.sqrt(s))
-    Al = U.dot(sl[:, :cut])
-    Ar = sl[:cut, :].dot(Vd)
-    return [Al, Ar, cut]
+        cut = min(len(s[s > 1e-12]), dbond)
+    if split == 'left':
+        sl = np.diag(s)
+        Al = U[:, :cut]
+        Ar = sl[:cut, :].dot(V)
+        return [Al, Ar, cut]
+    elif split == 'right':
+        sl = np.diag(s)
+        Al = U.dot(sl[:, :cut])
+        Ar = V
+        return [Al, Ar, cut]
+    elif split == 'center':
+        sl = np.diag(np.sqrt(s))
+        Al = U.dot(sl[:, :cut])
+        Ar = sl[:cut, :].dot(V)
+        return [Al, Ar, cut]
+    else:
+        raise ValueError("split must be left, right, or center")
+        
 
 
 def split_tensor(left: np.ndarray, right: np.ndarray, dbond: int = 2, where: str = 'mid', svd_only: bool = False) -> tuple[np.ndarray, np.ndarray]:
