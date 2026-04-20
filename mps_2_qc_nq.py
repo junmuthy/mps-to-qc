@@ -158,18 +158,13 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
 
     Returns
     -------
-    cap : The final disentangled statevector.
+    new_mps : A list of new MPS built from the original MPS and the unitaries
     
     """
     shape = len(mps)
     assert shape == len(unis)
     new_mps = list()
     cap = np.einsum('ai, aj', mps[0], unis[0].conjugate())
-    # if shape == 2:
-    #     us = unis[1].shape
-    #     cap = np.einsum('ac, ab, cbji', cap, mps[1], unis[1].conjugate())
-    #     cap = cap.reshape((us[3]*us[2], 1))
-    #     return cap
     ms = mps[1].shape
     us = unis[1].shape
     cap = np.einsum('ab, ack, bcij', cap, mps[1], unis[1].conjugate()).reshape((us[2], us[3]*ms[2]))
@@ -181,7 +176,6 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
     Al, cap, alpha = matrix_split(coming, exact=True)
     Al = Al.reshape((us[2], alpha))
     cap = cap.reshape((alpha, us[2], us[3]*ms[2]))
-    # Al, cap = split_tensor(cap, coming, where='start', svd_only=True)
     new_mps.append(Al)
     for i in range(3, shape-1):
         us = unis[i].shape
@@ -192,7 +186,6 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
         Al, cap, alpha = matrix_split(coming, exact=True)
         Al = Al.reshape((cs[0], cs[1], alpha))
         cap = cap.reshape((alpha, us[2], us[3]*ms[2]))
-        # Al, cap = split_tensor(cap, coming, where='mid', svd_only=True)
         new_mps.append(Al)
     us = unis[-1].shape
     cs = cap.shape
@@ -202,7 +195,6 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
     Al, cap, alpha = matrix_split(coming, exact=True)
     Al = Al.reshape((cs[0], cs[1], alpha))
     cap = cap.reshape((alpha, us[2], us[3]))
-    # Al, cap = split_tensor(cap, coming, where='mid', svd_only=True)
     new_mps.append(Al)
     cs = cap.shape
     cap = cap.reshape((cs[0]*cs[1], cs[2]))
@@ -211,9 +203,6 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
     cs = cap.shape
     q,r = np.linalg.qr(cap.reshape((cs[0]*cs[1], 1)))
     new_mps.append(q.reshape((cs[0], cs[1])))
-    # print(ms, us, cs)
-    # cap = np.einsum('ab, cbji, kca', mps[-1], unis[-1].conjugate(), cap)
-    # cap = cap.reshape((us[3]*us[2]*cs[0], 1))
     return new_mps
 
 
