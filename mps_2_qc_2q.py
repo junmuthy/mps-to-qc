@@ -1,6 +1,6 @@
 import numpy as np
 import scipy as sp
-
+import mps_2_qc_nq as mnq
 
 def left_orthgonalize(mps: list[np.ndarray]) -> np.ndarray:
     """
@@ -220,58 +220,83 @@ def update_mps_conjugate(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[
     shape = len(mps)
     assert shape == len(unis)
     new_mps = list()
+    new_mps.append(unis[0])
     ms = mps[0].shape
-    us1 = unis[1].shape
-    cap = np.einsum('al, ijak', mps[0].conjugate(), unis[1].conjugate())
-    us0 = unis[0].shape
-    cap = np.einsum('ia, ajkl', unis[0].conjugate(), cap).reshape((us0[0], us1[1]*us1[2]*ms[1]))
+    us = unis[1].shape
+    cap = np.einsum('al, ijak', mps[0].conjugate(), unis[1].conjugate()).reshape((us[0]*us[1], us[3]*ms[1]))
+    # cap = np.einsum('ia, ajkl', unis[0].conjugate(), cap).reshape((us0[0], us1[1]*us1[2]*ms[1]))
+    # Al, cap = np.linalg.qr(cap)
     Al, cap, alpha = mnq.matrix_split(cap)
-    new_mps.append(Al.reshape((us0[0], alpha)))
-    cap = cap.reshape((alpha, us1[1], us1[2], ms[1]))
-    for i in range(1, L-1):
+    # print(Al.reshape((us[0], us[1], alpha)))
+    new_mps.append(Al.reshape((us[0], us[1], alpha)))
+    # print(np.einsum('abi, abj', Al.reshape((us[0], us[1], alpha)), mps_list[1]))
+    # exit()
+    cap = cap.reshape((alpha, us[3], ms[1]))
+    # exit()
+    for i in range(1, L-2):
         ms = mps[i].shape
         us = unis[i+1].shape
         cs = cap.shape
-        coming = np.einsum('ial, jkam', mps[i], unis[i+1]).reshape((ms[0]*us[0], us[1]*ms[2]*us[3]))
-        coming = np.einsum('ia, aj', cap.reshape((cs[0]*cs[1], cs[2]*cs[3])), coming)
+        coming = np.einsum('jam, ikal', mps[i], unis[i+1]).reshape((us[0]*ms[0], us[1]*us[3]*ms[2]))
+        coming = np.einsum('ia, aj', cap.reshape((cs[0], cs[1]*cs[2])), coming).reshape((cs[0]*us[1], us[3]*ms[2]))
         Al, cap, alpha = mnq.matrix_split(coming)
-        Al = Al.reshape((cs[0], cs[1], alpha))
+        Al = Al.reshape((cs[0], us[1], alpha))
         new_mps.append(Al)
-        cap = cap.reshape((alpha, us[1], ms[2], us[3]))
-    ms = mps[-1].shape
+        cap = cap.reshape((alpha, us[3], ms[2]))
+    ms = mps[-2].shape
+    us = unis[-1].shape
     cs = cap.shape
-    coming = np.einsum('ijb, b', mps[-1], cap.reshape(-1)).reshape((ms[0]*ms[1], 1))
+    coming = np.einsum('jam, ikal', mps[-2], unis[-1]).reshape((us[0]*ms[0], us[1]*us[3]*ms[2]))
+    coming = np.einsum('ia, aj', cap.reshape((cs[0], cs[1]*cs[2])), coming).reshape((cs[0]*us[1], us[3]*ms[2]))
+    ms1 = mps[-1].shape
+    coming = np.einsum('ia, aj', coming, mps[-1].transpose().reshape((ms1[1]*ms1[0], 1)))
+    # Al, cap, alpha = mnq.matrix_split(coming)
+    # Al = Al.reshape((cs[0], us[1], alpha))
+    # new_mps.append(Al)
+    # cap = cap.reshape((alpha, us[3], ms[2]))
+    # ms = mps[-1].shape
+    # cs = cap.shape
+    # # print(ms)
+    # coming = np.einsum('bj, ib', mps[-1].reshape((ms[0]*ms[1],1)), cap.reshape((cs[0]*cs[1], cs[2]*cs[3])))
     q, _ = np.linalg.qr(coming)
-    new_mps.append(q.reshape((ms[0], ms[1])))
+    new_mps.append(q.reshape((cs[0], us[1])))
     return new_mps
 
     
         
 if __name__ == '__main__':        
-    L = 5
+    L = 4
     # mps_list = [np.random.normal(size=(2,2,2)) + 1j*np.random.normal(size=(2,2,2)) for i in range(L-2)]
     # mps_list.insert(0, np.random.normal(size=(2,2)) + 1j*np.random.normal(size=(2,2)))
     # mps_list.append(np.random.normal(size=(2,2)) + 1j*np.random.normal(size=(2,2)))
 
-    # left_orthgonalize(mps_list)
-    mps_list = [np.zeros(shape=(1,2,1)) for _ in range(L-2)]
-    for i in range(len(mps_list)):
-        mps_list[i][0,0,0] = 1.
-    mps_list.insert(0, np.zeros(shape=(2,1)))
-    mps_list[0][0,0] = 1
-    mps_list.append(np.zeros(shape=(1,2)))
-    mps_list[-1][0,0] = 1
+    mps_list = [np.random.normal(size=(2,2,2)) for i in range(L-2)]
+    mps_list.insert(0, np.random.normal(size=(2,2)))
+    mps_list.append(np.random.normal(size=(2,2)))
+
+    
+    left_orthgonalize(mps_list)
+    zero_list = [np.zeros(shape=(1,2,1)) for _ in range(L-2)]
+    for i in range(len(zero_list)):
+        zero_list[i][0,0,0] = 1.
+    zero_list.insert(0, np.zeros(shape=(2,1)))
+    zero_list[0][0,0] = 1
+    zero_list.append(np.zeros(shape=(1,2)))
+    zero_list[-1][0,0] = 1
     
     
     # print([x.shape for x in mps_list])
-    print([np.einsum('abi, abj', mps_list[i], mps_list[i].conjugate()) for
-           i in range(1, len(mps_list)-1)])
-    print(np.einsum('ab, ab', mps_list[-1], mps_list[-1].conjugate()))
-    print(np.einsum('ai, aj', mps_list[0], mps_list[0].conjugate()))
+    # print([np.einsum('abi, abj', mps_list[i], mps_list[i].conjugate()) for
+    #        i in range(1, len(mps_list)-1)])
+    # print(np.einsum('ab, ab', mps_list[-1], mps_list[-1].conjugate()))
+    # print(np.einsum('ai, aj', mps_list[0], mps_list[0].conjugate()))
 
     U = mps_to_unitaries(mps_list)
-    new_list = update_mps_conjugate(mps_list, U)
-    print([x.shape for x in new_list])
+    # print(mps_list[1])
+    new_list = update_mps_conjugate(zero_list, U)
+    print(new_list)
+    print(mps_list)
+    # print([x.shape for x in new_list])
 
     # vec = disentangle(mps_list, U)
     # print(vec)
