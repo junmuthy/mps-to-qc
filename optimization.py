@@ -12,8 +12,10 @@ class Optimizer:
         self.learning_rate = learning_rate
 
 
-def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray]:
+def update_mps_conjugate(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray]:
     """
+    Contructs a new set of MPS from unitary disentanglers and a
+    list of MPS.
 
     Parameters
     ----------
@@ -30,16 +32,30 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
     new_mps = list()
     ms = mps[0].shape
     us1 = unis[1].shape
-    cap = np.einsum('al, ijak' mps[0].conjugate(), unis[1].conjugate())
+    cap = np.einsum('al, ijak', mps[0].conjugate(), unis[1].conjugate())
     us0 = unis[0].shape
-    cs = cap.shape
     cap = np.einsum('ia, ajkl', unis[0].conjugate(), cap).reshape((us0[0], us1[1]*us1[2]*ms[1]))
     Al, cap, alpha = mnq.matrix_split(cap)
     new_mps.append(Al.reshape((us0[0], alpha)))
     cap = cap.reshape((alpha, us1[1], us1[2], ms[1]))
-    
-        
+    for i in range(1, L-1):
+        ms = mps[i].shape
+        us = unis[i+1].shape
+        cs = cap.shape
+        coming = np.einsum('ial, jkam', mps[i], unis[i+1]).reshape((ms[0]*us[0], us[1]*ms[2]*us[3]))
+        coming = np.einsum('ia, aj', cap.reshape((cs[0]*cs[1], cs[2]*cs[3])), coming)
+        Al, cap, alpha = mnq.matrix_split(coming)
+        Al = Al.reshape((cs[0], cs[1], alpha))
+        new_mps.append(Al)
+        cap = cap.reshape((alpha, us[1], ms[2], us[3]))
+    ms = mps[-1].shape
+    cs = cap.shape
+    coming = np.einsum('ijb, b', mps[-1], cap.reshape(-1)).reshape((ms[0]*ms[1], 1))
+    q, _ = np.linalg.qr(coming)
+    new_mps.append(q.reshape((ms[0], ms[1])))
+    return new_mps
 
+        
 if __name__ == '__main__':
     test_mpo_list = list()
     layers = 4
@@ -66,7 +82,7 @@ if __name__ == '__main__':
     precomputed_layers_forward.append(mps_left)
     current = precomputed_layers_forward[0]
     for i in range(layers):
-        current = mnq.update_mps(current, test_mpo_list[i])
+        current = update_mps_conjugate(current, test_mpo_list[i])
         precomputed_layers_forward.append(current)
 
     # This part is the normal update mps method I think
@@ -74,7 +90,7 @@ if __name__ == '__main__':
     precomputed_layers_backward.append(mps_right)
     current = precomputed_layers_backward[0]
     for i in range(layers):
-        current = mnq.update_mps(current, test_mpo_list[i])
+        current = mnq.update_mps(current, test_mpo_list[layers-i-1])
         precomputed_layers_forward.append(current)
 
 
