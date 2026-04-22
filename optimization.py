@@ -28,9 +28,31 @@ precomputed_layers_forward = list()
 precomputed_layers_backward = list()
 
 sweeps = 2
+learning_rate = 0.6
 for n in range(sweeps):
     for i in range(layers):
-            left = precomputed_layers_forward[i]
-            right = precomputed_layers_backward[i+2]
+        layer = test_mpo_list[i] # careful of looping through and copying
+        left = precomputed_layers_forward[i:i+1]
+        right = precomputed_layers_backward[i+1:i+2]
         for j in range(L):
+            U = layer[j]        # carefule of looping and copying
+            if j == 0:
+                pass                # mpo product for zero case
+            elif (0 < j < L-1):
+                pass                # mpo product for bulk case
+            else:
+                pass            # mpo product for last one
+            U, s, V = np.linalg.svd(F)
+            Unew = U.dot(V)
+            Utemp = U.conjugate().transpose().dot(Unew)
+            evecs, evals = np.linalg.eig(Utemp)
+            Utemp = evecs.dot(np.diag(evals**learning_rate)).dot(evecs.conjugate().transpose())
+            Uprime = U.dot(Utemp)
+            test_mpo_list[i][j] = Uprime # this is scary
+            
+
+                
+# test = list(range(5))
+# print(test[-1:0])
+            
             
