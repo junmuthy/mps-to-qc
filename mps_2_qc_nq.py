@@ -1,7 +1,7 @@
 from functools import reduce
 import numpy as np
 import scipy as sp
-# import mps_2_qc_2q as m2q
+import mps_2_qc_2q as m2q
 import copy
 
 
@@ -169,49 +169,38 @@ def update_mps(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray
     ms = mps[1].shape
     us = unis[1].shape
     cap = np.einsum('ab, ack, bcij', cap, mps[1], unis[1].conjugate()).reshape((us[2], us[3]*ms[2]))
-    us = unis[2].shape
-    cs = cap.shape
-    ms = mps[2].shape
-    coming = np.einsum('jam, iakl', mps[2], unis[2].conjugate()).reshape((us[0]*ms[0], us[2]*us[3]*ms[2]))
-    coming = np.einsum('ia, aj', cap, coming)
-    Al, cap, alpha = matrix_split(coming, exact=True)
-    Al = Al.reshape((us[2], alpha))
-    cap = cap.reshape((alpha, us[2], us[3]*ms[2]))
+    Al, cap, alpha = matrix_split(cap, exact=True)
     new_mps.append(Al)
-    for i in range(3, shape-1):
+    for i in range(2, shape-1):
         us = unis[i].shape
         cs = cap.shape
         ms = mps[i].shape
         coming = np.einsum('jam, iakl', mps[i], unis[i].conjugate()).reshape((us[0]*ms[0], us[2]*us[3]*ms[2]))
-        coming = np.einsum('ia, aj', cap.reshape((cs[0]*cs[1], cs[2])), coming)
+        coming = np.einsum('ia, aj', cap, coming).reshape((alpha*us[2], us[3]*ms[2]))
+        # coming = np.einsum('ia, aj', cap.reshape((cs[0]*cs[1], cs[2])), coming)
         Al, cap, alpha = matrix_split(coming, exact=True)
-        Al = Al.reshape((cs[0], cs[1], alpha))
-        cap = cap.reshape((alpha, us[2], us[3]*ms[2]))
+        Al = Al.reshape((cs[0], us[2], alpha))
+        # cap = cap.reshape((alpha, us[3]*ms[2]))
         new_mps.append(Al)
     us = unis[-1].shape
     cs = cap.shape
     ms = mps[-1].shape
     coming = np.einsum('ja, iakl', mps[-1], unis[-1].conjugate()).reshape((us[0]*ms[0], us[2]*us[3]))
-    coming = np.einsum('ia, aj', cap.reshape((cs[0]*cs[1], cs[2])), coming)
+    coming = np.einsum('ia, aj', cap, coming).reshape((alpha*us[2], us[3]))
     Al, cap, alpha = matrix_split(coming, exact=True)
-    Al = Al.reshape((cs[0], cs[1], alpha))
-    cap = cap.reshape((alpha, us[2], us[3]))
+    Al = Al.reshape((cs[0], us[2], alpha)) # cs[0] here is the old alpha
+    cap = cap.reshape((alpha*us[3], 1))
     new_mps.append(Al)
-    cs = cap.shape
-    cap = cap.reshape((cs[0]*cs[1], cs[2]))
-    Al, cap, alpha = matrix_split(cap, exact=True)
-    new_mps.append(Al.reshape((cs[0], cs[1], alpha)))
-    cs = cap.shape
-    q,r = np.linalg.qr(cap.reshape((cs[0]*cs[1], 1)))
-    new_mps.append(q.reshape((cs[0], cs[1])))
+    q,_ = np.linalg.qr(cap)
+    new_mps.append(q.reshape((alpha, us[3])))
     return new_mps
 
 
 
 
 if __name__ == '__main__':
-    L = 16
-    dim = 3
+    L = 8
+    dim = 4
     mps_list = [np.random.normal(size=(dim,2,dim)) for i in range(L-2)]
     mps_list.insert(0, np.random.normal(size=(2,dim)))
     mps_list.append(np.random.normal(size=(dim,2)))
@@ -225,7 +214,7 @@ if __name__ == '__main__':
     # print(np.trace(mps_list[-1].dot(mps_list[-1].conjugate().transpose())))
     # print([x.shape for x in mps_list])
     # print(mps_list[0].transpose().dot(mps_list[0]))
-    num_layers = 100
+    num_layers = 10
     current_list = copy.deepcopy(mps_list)
     # current_list = mps_list.copy()
     # unitary_layers = list()
@@ -269,6 +258,6 @@ if __name__ == '__main__':
         # print(np.abs(new.conjugate().transpose().dot(psi0))**2)
         # print('=')
         vec = m2q.build_wavefunction(current_list)
-        # print(vec)
+        # # print(vec)
         print(-1*np.log(np.abs(vec.conjugate().transpose().dot(psi0)))/L)
         print([x.shape for x in current_list])

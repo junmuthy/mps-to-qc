@@ -100,13 +100,26 @@ if __name__ == '__main__':
     for n in range(sweeps):
         for i in range(layers):
             layer = test_mpo_list[i] # careful of looping through and copying
+            ls = len(layer)
             left = precomputed_layers_forward[i:i+1]
             right = precomputed_layers_backward[i+1:i+2]
             for j in range(L):
                 U = layer[j]        # carefule of looping and copying
-                if j == 0:
-                    pass                # mpo product for zero case
-                elif (0 < j < L-1):
+                if j == 0:         # mpo product for zero case
+                    temp = np.einsum('ak, ija', left[-1], left[-2])
+                    temp = np.einsum('iab, jkab', temp, U[-1])
+                    temp = np.einsum('ija, ka', temp, right[-1])
+                    for a in range(ls-2, 1, -1):
+                        temp = np.einsum('ija, lka', temp, right[a])
+                        temp = np.einsum('ibal, kajb', temp, U[a])
+                        temp = np.einsum('bajk, iab',temp, left[a-1])
+                    temp = np.einsum('ajk, ia', temp, left[0])
+                    temp = np.einsum('ija, lka', temp, right[1])
+                    temp = np.einsum('cbaj, iacb',temp, U[1])
+                    temp = np.einsum('ia, ja', temp, right[0])
+                elif j == 1:            # mpod product for one case
+                    pass
+                elif (1 < j < L-1):
                     pass                # mpo product for bulk case
                 else:
                     pass            # mpo product for last one
