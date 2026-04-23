@@ -1,12 +1,13 @@
 from functools import reduce
 import numpy as np
 import scipy as sp
-import mps_2_qc_2q as m2q
+# import mps_2_qc_2q as m2q
 import copy
 
 
 def matrix_split(mat: np.ndarray, dbond: int=2, exact: bool=False, split: str='left') -> list[np.ndarray, np.ndarray, int]:
     U, s, V = np.linalg.svd(mat, full_matrices=False)
+    # print(U, V)
     # print(s)
     if exact:
         cut = len(s[s > 1e-12])
