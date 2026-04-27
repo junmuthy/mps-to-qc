@@ -140,15 +140,27 @@ if __name__ == '__main__':
                     bot = np.einsum('ia, ajk', bot, right[1])
                     bot = np.einsum('bak, baij', bot, U[1])
                     bot = np.einsum('ajk, ai', bot, left[0])
-                    for a in range(2, i):
+                    for a in range(2, i): # this is probably wrong
+                        # check the tensor[] indexing
                         bot = np.einsum('ija, akl', bot, right[a])
                         bot = np.einsum('ibal, bajk', bot, U[a])
                         bot = np.einsum('abjk, abi', bot, left[a-1])
                     bot = np.einsum('akl, aji', bot, left[i-1])
                     top = np.einsum('lka, ija', top, right[i])
                     F = np.einsum('ajlb, bkia', top, bot)
-                else:
-                    pass            # mpo product for last one
+                else:           # same down here, it's probably wrong
+                    # mpo product for the last one
+                    bot = np.einsum('ai, aj', U[0], right[0])
+                    bot = np.einsum('ia, ajk', bot, right[1])
+                    bot = np.einsum('bak, baij', bot, U[1])
+                    bot = np.einsum('ajk, ai', bot, left[0])
+                    for a in range(2, i):
+                        bot = np.einsum('ija, akl', bot, right[a])
+                        bot = np.einsum('ibal, bajk', bot, U[a])
+                        bot = np.einsum('abjk, abi', bot, left[a-1])
+                    bot = np.einsum('ija, ak', bot, right[-1])
+                    top = np.einsum('ak, ija', left[-1], left[-2])
+                    F = np.einsum('akl, aij', top, bot)
                 U, s, V = np.linalg.svd(F)
                 Unew = U.dot(V)
                 Utemp = U.conjugate().transpose().dot(Unew)
