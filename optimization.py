@@ -91,7 +91,7 @@ if __name__ == '__main__':
     current = precomputed_layers_backward[0]
     for i in range(layers):
         current = mnq.update_mps(current, test_mpo_list[layers-i-1])
-        precomputed_layers_forward.append(current)
+        precomputed_layers_backward.append(current)
 
 
 
@@ -106,21 +106,47 @@ if __name__ == '__main__':
             for j in range(L):
                 U = layer[j]        # carefule of looping and copying
                 if j == 0:         # mpo product for zero case
-                    temp = np.einsum('ak, ija', left[-1], left[-2])
-                    temp = np.einsum('iab, jkab', temp, U[-1])
-                    temp = np.einsum('ija, ka', temp, right[-1])
+                    F = np.einsum('ak, ija', left[-1], left[-2])
+                    F = np.einsum('iab, jkab', F, U[-1])
+                    F = np.einsum('ija, ka', F, right[-1])
                     for a in range(ls-2, 1, -1):
-                        temp = np.einsum('ija, lka', temp, right[a])
-                        temp = np.einsum('ibal, kajb', temp, U[a])
-                        temp = np.einsum('bajk, iab',temp, left[a-1])
-                    temp = np.einsum('ajk, ia', temp, left[0])
-                    temp = np.einsum('ija, lka', temp, right[1])
-                    temp = np.einsum('cbaj, iacb',temp, U[1])
-                    temp = np.einsum('ia, ja', temp, right[0])
+                        F = np.einsum('ija, lka', F, right[a])
+                        F = np.einsum('ibal, kajb', F, U[a])
+                        F = np.einsum('bajk, iab',F, left[a-1])
+                    F = np.einsum('ajk, ia', F, left[0])
+                    F = np.einsum('ija, lka', F, right[1])
+                    F = np.einsum('cbaj, iacb',F, U[1])
+                    F = np.einsum('ia, ja', F, right[0])
                 elif j == 1:            # mpod product for one case
-                    pass
-                elif (1 < j < L-1):
-                    pass                # mpo product for bulk case
+                    top = np.einsum('ak, ija', left[-1], left[-2])
+                    top = np.einsum('iab, jkab', top, U[-1])
+                    top = np.einsum('ija, ka', top, right[-1])
+                    for a in range(ls-2, 1, -1): # this is probably wrong
+                        top = np.einsum('ija, lka', top, right[a])
+                        top = np.einsum('ibal, kajb', top, U[a])
+                        top = np.einsum('bajk, iab',top, left[a-1])
+                    bot = np.einsum('ai, aj', U[0], right[0])
+                    bot = np.einsum('ia, ajk', bot, right[1])
+                    F = np.einsum('lkb, ia, ajb', bot, left[0], top)
+                elif (1 < j < L-1): # mpo product for bulk
+                    top = np.einsum('ak, ija', left[-1], left[-2])
+                    top = np.einsum('iab, jkab', top, U[-1])
+                    top = np.einsum('ija, ka', top, right[-1])
+                    for a in range(ls-2, 1, -1): #  this is probably wrong too
+                        top = np.einsum('ija, lka', top, right[a])
+                        top = np.einsum('ibal, kajb', top, U[a])
+                        top = np.einsum('bajk, iab',top, left[a-1])
+                    bot = np.einsum('ai, aj', U[0], right[0])
+                    bot = np.einsum('ia, ajk', bot, right[1])
+                    bot = np.einsum('bak, baij', bot, U[1])
+                    bot = np.einsum('ajk, ai', bot, left[0])
+                    for a in range(2, i):
+                        bot = np.einsum('ija, akl', bot, right[a])
+                        bot = np.einsum('ibal, bajk', bot, U[a])
+                        bot = np.einsum('abjk, abi', bot, left[a-1])
+                    bot = np.einsum('akl, aji', bot, left[i-1])
+                    top = np.einsum('lka, ija', top, right[i])
+                    F = np.einsum('ajlb, bkia', top, bot)
                 else:
                     pass            # mpo product for last one
                 U, s, V = np.linalg.svd(F)
