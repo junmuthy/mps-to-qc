@@ -4,12 +4,107 @@ import mps_2_qc_nq as mnq
 
 class Optimizer:
     """Object to optimize a quantum circuit"""
-    def __init__(self, circuit: list[np.ndarray], sweeps: int, fidelity: float, learning_rate: float):
+    def __init__(self, mps_left: list[np.ndarray], mps_right: list[np.ndarray], circuit: list[np.ndarray],
+                 sweeps: int, fidelity: float, learning_rate: float):
         """class initialization"""
         self.sweeps = sweeps
         self.circuit = circuit
+        self.mps_left = mps_left
+        self.mps_right = mps_right
         self.fidelity = fidelity
         self.learning_rate = learning_rate
+        self.layers = len(circuit)
+
+    def precompute_layers(self,):
+        # This part needs to be redone
+        self.precomputed_layers_forward = list()
+        self.precomputed_layers_forward.append(self.mps_left)
+        current = self.precomputed_layers_forward[0]
+        for i in range(self.layers):
+            current = update_mps_conjugate(current, self.circuit[i])
+            self.precomputed_layers_forward.append(current)
+
+        # This part is the normal update mps method I think
+        self.precomputed_layers_backward = list()
+        self.precomputed_layers_backward.append(self.mps_right)
+        current = self.precomputed_layers_backward[0]
+        for i in range(self.layers):
+            current = mnq.update_mps(current, self.circuit[self.layers-i-1])
+            self.precomputed_layers_backward.append(current)
+
+    def sweep(self,):
+        for i in range(self.layers):
+            layer = self.circuit[i] # careful of looping through and copying
+            ls = len(layer)
+            left = self.precomputed_layers_forward[i:i+1]
+            right = self.precomputed_layers_backward[i+1:i+2]
+            for j in range(ls):
+                U = layer[j]        # carefule of looping and copying
+                if j == 0:         # mpo product for zero case
+                    F = np.einsum('ak, ija', left[-1], left[-2])
+                    F = np.einsum('iab, jkab', F, U[-1])
+                    F = np.einsum('ija, ka', F, right[-1])
+                    for a in range(ls-2, 1, -1):
+                        F = np.einsum('ija, lka', F, right[a])
+                        F = np.einsum('ibal, kajb', F, U[a])
+                        F = np.einsum('bajk, iab',F, left[a-1])
+                    F = np.einsum('ajk, ia', F, left[0])
+                    F = np.einsum('ija, lka', F, right[1])
+                    F = np.einsum('cbaj, iacb',F, U[1])
+                    F = np.einsum('ia, ja', F, right[0])
+                elif j == 1:            # mpod product for one case
+                    top = np.einsum('ak, ija', left[-1], left[-2])
+                    top = np.einsum('iab, jkab', top, U[-1])
+                    top = np.einsum('ija, ka', top, right[-1])
+                    for a in range(ls-2, 2, -1): # this is probably wrong
+                        top = np.einsum('ija, lka', top, right[a])
+                        top = np.einsum('ibal, kajb', top, U[a])
+                        top = np.einsum('bajk, iab',top, left[a-1])
+                    bot = np.einsum('ai, aj', U[0], right[0])
+                    bot = np.einsum('ia, ajk', bot, right[1])
+                    F = np.einsum('lkb, ia, ajb', bot, left[0], top)
+                elif (1 < j < L-1): # mpo product for bulk
+                    top = np.einsum('ak, ija', left[-1], left[-2])
+                    top = np.einsum('iab, jkab', top, U[-1])
+                    top = np.einsum('ija, ka', top, right[-1])
+                    for a in range(ls-2, j, -1): #  this is probably wrong too
+                        top = np.einsum('ija, lka', top, right[a])
+                        top = np.einsum('ibal, kajb', top, U[a])
+                        top = np.einsum('bajk, iab',top, left[a-1])
+                    bot = np.einsum('ai, aj', U[0], right[0])
+                    bot = np.einsum('ia, ajk', bot, right[1])
+                    bot = np.einsum('bak, baij', bot, U[1])
+                    bot = np.einsum('ajk, ai', bot, left[0])
+                    for a in range(2, j): # this is probably wrong
+                        # check the tensor[] indexing
+                        bot = np.einsum('ija, akl', bot, right[a])
+                        bot = np.einsum('ibal, bajk', bot, U[a])
+                        bot = np.einsum('abjk, abi', bot, left[a-1])
+                    bot = np.einsum('akl, aji', bot, left[i-1])
+                    top = np.einsum('lka, ija', top, right[i])
+                    F = np.einsum('ajlb, bkia', top, bot)
+                else:           # same down here, it's probably wrong
+                    # mpo product for the last one
+                    bot = np.einsum('ai, aj', U[0], right[0])
+                    bot = np.einsum('ia, ajk', bot, right[1])
+                    bot = np.einsum('bak, baij', bot, U[1])
+                    bot = np.einsum('ajk, ai', bot, left[0])
+                    for a in range(2, j):
+                        bot = np.einsum('ija, akl', bot, right[a])
+                        bot = np.einsum('ibal, bajk', bot, U[a])
+                        bot = np.einsum('abjk, abi', bot, left[a-1])
+                    bot = np.einsum('ija, ak', bot, right[-1])
+                    top = np.einsum('ak, ija', left[-1], left[-2])
+                    F = np.einsum('akl, aij', top, bot)
+                U, _, V = np.linalg.svd(F)
+                Unew = U.dot(V)
+                Utemp = U.conjugate().transpose().dot(Unew)
+                evecs, evals = np.linalg.eig(Utemp)
+                Utemp = evecs.dot(np.diag(evals**learning_rate)).dot(evecs.conjugate().transpose()) # check transpose order
+                Uprime = U.dot(Utemp)
+                self.circuit[i][j] = Uprime # this is scary
+        
+
 
 
 def update_mps_conjugate(mps: list[np.ndarray], unis: list[np.ndarray]) -> list[np.ndarray]:
@@ -93,8 +188,6 @@ if __name__ == '__main__':
         current = mnq.update_mps(current, test_mpo_list[layers-i-1])
         precomputed_layers_backward.append(current)
 
-
-
     sweeps = 2
     learning_rate = 0.6
     for n in range(sweeps):
@@ -103,7 +196,7 @@ if __name__ == '__main__':
             ls = len(layer)
             left = precomputed_layers_forward[i:i+1]
             right = precomputed_layers_backward[i+1:i+2]
-            for j in range(L):
+            for j in range(ls):
                 U = layer[j]        # carefule of looping and copying
                 if j == 0:         # mpo product for zero case
                     F = np.einsum('ak, ija', left[-1], left[-2])
@@ -121,7 +214,7 @@ if __name__ == '__main__':
                     top = np.einsum('ak, ija', left[-1], left[-2])
                     top = np.einsum('iab, jkab', top, U[-1])
                     top = np.einsum('ija, ka', top, right[-1])
-                    for a in range(ls-2, 1, -1): # this is probably wrong
+                    for a in range(ls-2, 2, -1): # this is probably wrong
                         top = np.einsum('ija, lka', top, right[a])
                         top = np.einsum('ibal, kajb', top, U[a])
                         top = np.einsum('bajk, iab',top, left[a-1])
@@ -132,7 +225,7 @@ if __name__ == '__main__':
                     top = np.einsum('ak, ija', left[-1], left[-2])
                     top = np.einsum('iab, jkab', top, U[-1])
                     top = np.einsum('ija, ka', top, right[-1])
-                    for a in range(ls-2, 1, -1): #  this is probably wrong too
+                    for a in range(ls-2, j, -1): #  this is probably wrong too
                         top = np.einsum('ija, lka', top, right[a])
                         top = np.einsum('ibal, kajb', top, U[a])
                         top = np.einsum('bajk, iab',top, left[a-1])
@@ -140,7 +233,7 @@ if __name__ == '__main__':
                     bot = np.einsum('ia, ajk', bot, right[1])
                     bot = np.einsum('bak, baij', bot, U[1])
                     bot = np.einsum('ajk, ai', bot, left[0])
-                    for a in range(2, i): # this is probably wrong
+                    for a in range(2, j): # this is probably wrong
                         # check the tensor[] indexing
                         bot = np.einsum('ija, akl', bot, right[a])
                         bot = np.einsum('ibal, bajk', bot, U[a])
@@ -154,7 +247,7 @@ if __name__ == '__main__':
                     bot = np.einsum('ia, ajk', bot, right[1])
                     bot = np.einsum('bak, baij', bot, U[1])
                     bot = np.einsum('ajk, ai', bot, left[0])
-                    for a in range(2, i):
+                    for a in range(2, j):
                         bot = np.einsum('ija, akl', bot, right[a])
                         bot = np.einsum('ibal, bajk', bot, U[a])
                         bot = np.einsum('abjk, abi', bot, left[a-1])
